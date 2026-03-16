@@ -263,7 +263,6 @@ input[type="text"]:focus,input[type="number"]:focus{outline:none;border-color:va
       </span>
       <span style="font-size:11px;font-weight:600;color:#a0620a;background:#fff8e1;border:1px solid #ffe082;border-radius:6px;padding:2px 8px;margin-left:4px">友情ボーナス</span>
     </label>
-    <span id="friend-preview" style="font-size:12px;font-weight:600;color:#a0620a;white-space:nowrap"></span>
   </div>
   <div class="section-lbl" id="rec-section-lbl">運動を選択（複数可・最高報酬が採用されます）</div>
   <div id="ex-grid"></div>
@@ -484,7 +483,13 @@ function load(){
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
 
 /* ── Helpers ── */
-function td(){return new Date().toISOString().split('T')[0];}
+function td(){
+  var now=new Date();
+  var y=now.getFullYear();
+  var m=now.getMonth()+1;
+  var d=now.getDate();
+  return y+'-'+(m<10?'0'+m:m)+'-'+(d<10?'0'+d:d);
+}
 function dObj(s){var p=s.split('-');return new Date(+p[0],+p[1]-1,+p[2]);}
 function dayDiff(a,b){return Math.round((dObj(b)-dObj(a))/86400000);}
 function getLv(n){for(var i=LVS.length-1;i>=0;i--)if(n>=LVS[i].req)return LVS[i];return LVS[0];}
@@ -678,7 +683,6 @@ function doRecord(){
   clearSel();
   // reset friend checkbox
   var fc=document.getElementById('friend-chk');if(fc)fc.checked=false;
-  var fp=document.getElementById('friend-preview');if(fp)fp.textContent='';
   save();renderAll();ST('home');
   var names=newIds.map(function(id){var e=exById(id);return e?e.l:'';}).join('、');
   var msg=isNewDay?'記録しました！':'追加しました：'+names;
@@ -708,7 +712,8 @@ function doSpend(){
   save();renderAll();
 }
 function deleteSpend(sid){
-  var idx=S.spends.findIndex(function(s){return s.id===sid;});
+  var idx=-1;
+  for(var i=0;i<S.spends.length;i++){if(String(S.spends[i].id)===String(sid)){idx=i;break;}}
   if(idx<0)return;
   if(!confirm('削除しますか？\n'+S.spends[idx].item+' ¥'+S.spends[idx].amt.toLocaleString()))return;
   S.spent-=S.spends[idx].amt;
@@ -733,16 +738,7 @@ function updateRecordBtn(){
   var selIds=[].slice.call(document.querySelectorAll('.ex-item.sel:not(.already)')).map(function(b){return b.dataset.id;});
   var hasNew=selIds.length>0;
   document.getElementById('rbtn').disabled=!hasNew;
-  // update preview
-  var previewEl=document.getElementById('friend-preview');
-  var fc=document.getElementById('friend-chk');
-  if(!previewEl||!fc)return;
-  if(!hasNew||!fc.checked){previewEl.textContent='';return;}
-  var maxR=Math.max.apply(null,selIds.map(function(id){var e=exById(id);return e?e.r:0;}).concat([0]));
-  var lv4=(S.level>=4);
-  var base=Math.round(maxR*(lv4?1.5:1));
-  var doubled=base*2;
-  previewEl.textContent='+¥'+base.toLocaleString()+' → +¥'+doubled.toLocaleString();
+
 }
 
 /* ═══════════════════════════════
@@ -906,9 +902,12 @@ function doImport(evt){
 function doReset(){
   if(!confirm('全データを削除します。この操作は取り消せません。\n本当によろしいですか？'))return;
   if(!confirm('本当に削除しますか？'))return;
-  localStorage.removeItem(KEY);
-  S={earned:0,spent:0,history:[],spends:[],streak:0,lastEx:null,totalCount:0,level:0,rules:{}};
-  loadRules();renderAll();toast('データを削除しました');
+  try{localStorage.removeItem(KEY);}catch(e){}
+  S={earned:0,spent:0,history:[],spends:[],streak:0,cycleStreak:0,lastEx:null,totalCount:0,level:0,rules:{}};
+  loadRules();
+  recalcStreak();
+  renderAll();
+  toast('データを削除しました');
 }
 
 /* ═══════════════════════════════
@@ -989,9 +988,10 @@ function rSpend(){
   var l=document.getElementById('spend-list');
   if(!S.spends.length){l.innerHTML='<div class="empty">支出記録がありません</div>';return;}
   l.innerHTML=S.spends.map(function(s){
+    var sid=String(s.id);
     return '<div class="hi"><div><div class="hi-d">'+s.date+'</div><div class="hi-n">'+s.item+'</div></div>'
       +'<div class="hi-right"><div class="hi-a" style="color:var(--red)">−¥'+s.amt.toLocaleString()+'</div>'
-      +'<div class="hi-actions"><button class="btn-del" onclick="deleteSpend(\''+s.id+'\')">削除</button></div></div></div>';
+      +'<div class="hi-actions"><button class="btn-del" data-sid="'+sid+'" onclick="deleteSpend(this.dataset.sid)">削除</button></div></div></div>';
   }).join('');
 }
 
