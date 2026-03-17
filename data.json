@@ -1,0 +1,53 @@
+{
+  "earned": 1100,
+  "spent": 220,
+  "history": [
+    {
+      "date": "2026-03-17",
+      "exs": [
+        "gym"
+      ],
+      "type": "ex",
+      "amt": 1000,
+      "note": "",
+      "friendBonus": false,
+      "id": "1773753898697-7675"
+    },
+    {
+      "date": "2026-03-16",
+      "exs": [
+        "hmach"
+      ],
+      "type": "ex",
+      "amt": 100,
+      "note": "",
+      "friendBonus": false,
+      "id": "1773753914977-2708"
+    }
+  ],
+  "spends": [
+    {
+      "date": "2026-03-17",
+      "item": "アクエリ",
+      "amt": 120,
+      "id": "1773753943416-8475"
+    },
+    {
+      "date": "2026-03-17",
+      "item": "ジム",
+      "amt": 100,
+      "id": "1773753931495-1134"
+    }
+  ],
+  "streak": 2,
+  "lastEx": "2026-03-17",
+  "totalCount": 2,
+  "level": 0,
+  "rules": {
+    "ex": null,
+    "sb": null,
+    "wb": null,
+    "mb": null
+  },
+  "cycleStreak": 2
+}
