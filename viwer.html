@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>運動貯金</title>
+<title>運動貯金（閲覧）</title>
 <style>
 :root{
   --bg:#f5f4f0;--bg2:#fff;--bg3:#f9f8f5;
@@ -214,19 +214,16 @@ input[type="text"]:focus,input[type="number"]:focus{outline:none;border-color:va
 <div class="container">
 <div class="header">
   <div style="display:flex;align-items:center;justify-content:space-between">
-    <h1>💪 運動貯金</h1>
+    <h1>💪 運動貯金 <span style="font-size:13px;font-weight:400;color:#888">（閲覧モード）</span></h1>
     <span id="sync-status" style="font-size:11px;padding:3px 10px;border-radius:20px;font-weight:600;background:#333;color:#aaa">読込中…</span>
   </div>
   <p>開始：2026/03/16 ｜ 運動・健康関連にのみ使用可能</p>
 </div>
 <div class="tab-bar">
   <button class="tab on"  onclick="ST('home')">ホーム</button>
-  <button class="tab"     onclick="ST('rec')">記録</button>
-  <button class="tab"     onclick="ST('spend')">支出</button>
   <button class="tab"     onclick="ST('cal')">カレンダー</button>
   <button class="tab"     onclick="ST('hist')">履歴</button>
   <button class="tab"     onclick="ST('rule')">ルール</button>
-  <button class="tab"     onclick="ST('settings')">設定</button>
 </div>
 
 <!-- ホーム -->
@@ -451,7 +448,7 @@ var LVS=[
    GITHUB STORAGE CONFIG
    YOUR_PAT_HERE の部分を自分のPATに書き換えてください
 ════════════════════════════════════════ */
-var GH_TOKEN  = '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';
+var GH_TOKEN  = ''; // 閲覧モード：トークン不要（publicリポジトリの場合）
 var GH_OWNER  = 'taku119';
 var GH_REPO   = 'undou_chokin';
 var GH_FILE   = 'data.json';
@@ -540,15 +537,14 @@ function load(){
     chkPenalty();renderAll();
   });
 }
-/* ── GitHub書き込み ── */
+/* ── 閲覧モード：書き込み無効 ── */
 var _saveTimer=null;
 var _saving=false;
 function save(){
   // ローカルキャッシュに即時書き込み
   try{localStorage.setItem(LOCAL_KEY,JSON.stringify(S));}catch(e){}
   // デバウンス: 連続操作時は最後の1回だけ送信
-  clearTimeout(_saveTimer);
-  _saveTimer=setTimeout(function(){_pushToGitHub();},800);
+  // 閲覧モード：書き込みなし
 }
 function _pushToGitHub(){
   if(_saving){
@@ -1200,7 +1196,7 @@ function rSettings(){
 }
 
 function ST(name){
-  var names=['home','rec','spend','cal','hist','rule','settings'];
+  var names=['home','cal','hist','rule'];
   names.forEach(function(n,i){
     document.querySelectorAll('.tab')[i].classList.toggle('on',n===name);
     document.getElementById('p-'+n).classList.toggle('on',n===name);
