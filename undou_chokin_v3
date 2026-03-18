@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>運動貯金 ver3</title>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+
+body{
+font-family:sans-serif;
+background:#f4f6f8;
+margin:20px;
+}
+
+h1{
+text-align:center;
+}
+
+.card{
+background:white;
+padding:15px;
+margin:10px 0;
+border-radius:10px;
+box-shadow:0 2px 6px rgba(0,0,0,0.1);
+}
+
+button{
+padding:10px;
+margin:5px;
+border:none;
+border-radius:6px;
+background:#4CAF50;
+color:white;
+cursor:pointer;
+}
+
+button:hover{
+opacity:0.8;
+}
+
+.stats{
+display:flex;
+justify-content:space-around;
+font-size:18px;
+}
+
+.exercise button{
+background:#2196F3;
+}
+
+.warning{
+color:red;
+font-weight:bold;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<h1>運動貯金 ver3</h1>
+
+<div class="card stats">
+<div>残高: ¥<span id="balance">0</span></div>
+<div>Lv: <span id="level">1</span></div>
+<div>連続: <span id="streak">0</span>日</div>
+</div>
+
+<div class="card">
+
+<h3>運動する</h3>
+
+<div class="exercise">
+
+<button onclick="exercise('run',200)">🏃 ランニング</button>
+<button onclick="exercise('muscle',150)">🏋 筋トレ</button>
+<button onclick="exercise('walk',100)">🚶 散歩</button>
+<button onclick="exercise('stretch',50)">🧘 ストレッチ</button>
+
+</div>
+
+</div>
+
+<div class="card">
+
+<h3>今日のミッション</h3>
+<div id="mission"></div>
+
+</div>
+
+<div class="card">
+
+<h3>支出</h3>
+
+<input id="spendText" placeholder="購入品">
+<input id="spendAmount" type="number" placeholder="金額">
+<button onclick="spend()">支出</button>
+
+</div>
+
+<div class="card">
+
+<h3>履歴</h3>
+
+<ul id="history"></ul>
+
+</div>
+
+<div class="card">
+
+<h3>グラフ</h3>
+
+<canvas id="chart"></canvas>
+
+</div>
+
+<div class="card">
+
+<h3>未来予測</h3>
+
+<div id="future"></div>
+
+</div>
+
+<script>
+
+let data = JSON.parse(localStorage.getItem("undou")) || {
+
+balance:0,
+streak:0,
+lastDate:null,
+history:[],
+total:0
+
+}
+
+function save(){
+
+localStorage.setItem("undou",JSON.stringify(data))
+
+}
+
+function level(){
+
+return Math.floor(data.total/10)+1
+
+}
+
+function exercise(name,base){
+
+let today=new Date().toDateString()
+
+if(data.lastDate!==today){
+
+if(data.lastDate){
+
+let yesterday=new Date()
+yesterday.setDate(yesterday.getDate()-1)
+
+if(new Date(data.lastDate).toDateString()===yesterday.toDateString()){
+
+data.streak++
+
+}else{
+
+data.streak=1
+
+}
+
+}else{
+
+data.streak=1
+
+}
+
+}
+
+data.lastDate=today
+
+let reward=base
+
+let lv=level()
+
+reward=Math.floor(reward*(1+(lv*0.05)))
+
+if(Math.random()<0.1){
+
+reward+=100
+alert("🎉ランダムボーナス +100円")
+
+}
+
+data.balance+=reward
+data.total++
+
+data.history.unshift(
+
+today+" "+name+" +"+reward+"円"
+
+)
+
+update()
+
+}
+
+function spend(){
+
+let text=document.getElementById("spendText").value
+let amount=parseInt(document.getElementById("spendAmount").value)
+
+if(!amount)return
+
+data.balance-=amount
+
+data.history.unshift(
+
+new Date().toDateString()+" "+text+" -"+amount+"円"
+
+)
+
+update()
+
+}
+
+function mission(){
+
+let list=[
+
+"スクワット30回",
+"腕立て20回",
+"20分歩く",
+"ストレッチ10分"
+
+]
+
+let m=list[Math.floor(Math.random()*list.length)]
+
+document.getElementById("mission").innerText=m
+
+}
+
+function future(){
+
+let yearly=data.total*365/Math.max(1,data.history.length)
+
+document.getElementById("future").innerText=
+
+"このペースだと年間運動回数 "+Math.floor(yearly)
+
+}
+
+function update(){
+
+document.getElementById("balance").innerText=data.balance
+
+document.getElementById("streak").innerText=data.streak
+
+document.getElementById("level").innerText=level()
+
+let h=document.getElementById("history")
+
+h.innerHTML=""
+
+data.history.slice(0,10).forEach(e=>{
+
+let li=document.createElement("li")
+
+li.innerText=e
+
+h.appendChild(li)
+
+})
+
+save()
+
+draw()
+
+future()
+
+}
+
+function draw(){
+
+let ctx=document.getElementById("chart")
+
+let labels=data.history.slice(0,7).map((_,i)=>i+1)
+
+let values=data.history.slice(0,7).map(()=>data.balance)
+
+new Chart(ctx,{
+
+type:"line",
+
+data:{
+
+labels:labels,
+
+datasets:[{
+
+label:"残高",
+
+data:values
+
+}]
+
+}
+
+})
+
+}
+
+mission()
+
+update()
+
+</script>
+
+</body>
+
+</html>
