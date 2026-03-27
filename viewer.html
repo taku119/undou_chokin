@@ -543,6 +543,7 @@ function save(){
 }
 
 function _pushToSupabase(){
+  setStatus('ok'); return; // 閲覧モード
   if(_saving){_saveTimer=setTimeout(function(){_pushToSupabase();},1200);return;}
   _saving=true;
   setStatus('saving');
@@ -1309,7 +1310,8 @@ function rCal(){
   var startOffset=firstDay===0?6:firstDay-1; // Mon=0
   var daysInMonth=new Date(y,m+1,0).getDate();
   var daysInPrev=new Date(y,m,0).getDate();
-  var todayStr=new Date().toISOString().split('T')[0];
+  var _tn=new Date();
+  var todayStr=_tn.getFullYear()+'-'+(_tn.getMonth()+1<10?'0'+(_tn.getMonth()+1):(_tn.getMonth()+1))+'-'+(_tn.getDate()<10?'0'+_tn.getDate():_tn.getDate());
   var cells=[];
 
   // prev month padding
