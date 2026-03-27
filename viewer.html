@@ -525,13 +525,13 @@ function load(){
       return {id:r.id,date:r.date,item:r.item,amt:r.amt};
     });
     try{localStorage.setItem(LOCAL_KEY,JSON.stringify(S));}catch(e){}
-    loadRules();recalcStreak();chkPenalty();renderAll();
+    loadRules();recalcStreak();renderAll();
     setStatus('ok');
   })
   .catch(function(err){
     console.error('Supabase load error:',err);
     setStatus('error');
-    chkPenalty();renderAll();
+    renderAll();
   });
 }
 /* ── 閲覧モード：書き込み無効 ── */
