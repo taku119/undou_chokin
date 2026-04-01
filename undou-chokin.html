@@ -213,10 +213,7 @@ input[type="text"]:focus,input[type="number"]:focus{outline:none;border-color:va
 <body>
 <div class="container">
 <div class="header">
-  <div style="display:flex;align-items:center;justify-content:space-between">
-    <h1>💪 運動貯金</h1>
-    <span id="sync-status" style="font-size:11px;padding:3px 10px;border-radius:20px;font-weight:600;background:#333;color:#aaa">読込中…</span>
-  </div>
+  <h1>💪 運動貯金</h1>
   <p>開始：2026/03/16 ｜ 運動・健康関連にのみ使用可能</p>
 </div>
 <div class="tab-bar">
@@ -361,7 +358,7 @@ input[type="text"]:focus,input[type="number"]:focus{outline:none;border-color:va
   <!-- バックアップ -->
   <div class="card">
     <div class="ct">💾 データのバックアップ</div>
-    <p style="font-size:12px;color:var(--fg3);margin-bottom:12px">データはSupabaseに保存されます。ブラウザを変えても・デバイスを変えても同じデータにアクセスできます。念のためエクスポートも定期的にどうぞ。</p>
+    <p style="font-size:12px;color:var(--fg3);margin-bottom:12px">データはブラウザのlocalStorageに保存されます。キャッシュ削除で消えるため、定期的にエクスポートしてください。</p>
     <div class="backup-btns">
       <button class="btn-backup" onclick="doExport()">📤 エクスポート</button>
       <label class="btn-backup" style="cursor:pointer">📥 インポート<input type="file" accept=".json" onchange="doImport(event)" style="display:none"></label>
@@ -447,23 +444,7 @@ var LVS=[
   {lv:4,name:'レジェンド',  req:100,next:null,bonus:5000,bg:'#fce4ec',cl:'#a0194a'},
 ];
 
-/* ════════════════════════════════════════
-   SUPABASE CONFIG
-════════════════════════════════════════ */
-var SB_URL    = 'https://bonlhaztmtkxfupinpnc.supabase.co';
-var SB_KEY    = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJvbmxoYXp0bXRreGZ1cGlucG5jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ1NDEzMTgsImV4cCI6MjA5MDExNzMxOH0.7lCl0r5vd9Mc3Qb6-Hqi2ESwuxuKjhm_oE47yK431CM';
-var LOCAL_KEY = 'undou_chokin_v5'; // ローカルキャッシュ用
-
-function sbFetch(path, opts){
-  var url=SB_URL+'/rest/v1/'+path;
-  var headers=Object.assign({
-    'apikey': SB_KEY,
-    'Authorization': 'Bearer '+SB_KEY,
-    'Content-Type': 'application/json',
-    'Prefer': 'return=representation'
-  }, opts&&opts.headers||{});
-  return fetch(url, Object.assign({}, opts, {headers:headers}));
-}
+var KEY='undou_chokin_v5';
 
 var S={
   earned:0,spent:0,
@@ -488,137 +469,18 @@ function saveRules(){
   S.rules={ex:EX,sb:SB,wb:WB,mb:MB};
 }
 
-/* ── Storage (Supabase) ── */
+/* ── Storage ── */
 function load(){
-  // まずローカルキャッシュで即時描画
-  try{
-    var cached=localStorage.getItem(LOCAL_KEY);
-    if(cached){
-      var cs=JSON.parse(cached);
-      if(!cs.rules)cs.rules={};
-      if(!cs.spends)cs.spends=[];
-      S=cs; loadRules();recalcStreak();renderAll();
-    }
-  }catch(e){}
-  setStatus('loading');
-  // state・history・spends を並行取得
-  Promise.all([
-    sbFetch('state?id=eq.1').then(function(r){return r.json();}),
-    sbFetch('history?order=date.desc&limit=500').then(function(r){return r.json();}),
-    sbFetch('spends?order=date.desc&limit=500').then(function(r){return r.json();})
-  ])
-  .then(function(results){
-    var stateRows=results[0], histRows=results[1], spendRows=results[2];
-    // state
-    var st=(stateRows&&stateRows.length)?stateRows[0]:{};
-    S.earned     = st.earned||0;
-    S.spent      = st.spent||0;
-    S.streak     = st.streak||0;
-    S.cycleStreak= st.cycle_streak||0;
-    S.lastEx     = st.last_ex||null;
-    S.totalCount = st.total_count||0;
-    S.level      = st.level||0;
-    S.rules      = st.rules||{};
-    // history
-    S.history=(histRows||[]).map(function(r){
-      return {id:r.id,date:r.date,exs:r.exs||[],type:r.type,amt:r.amt,note:r.note||'',friendBonus:r.friend_bonus||false};
-    });
-    // spends
-    S.spends=(spendRows||[]).map(function(r){
-      return {id:r.id,date:r.date,item:r.item,amt:r.amt};
-    });
-    try{localStorage.setItem(LOCAL_KEY,JSON.stringify(S));}catch(e){}
-    loadRules();recalcStreak();chkPenalty();renderAll();
-    setStatus('ok');
-  })
-  .catch(function(err){
-    console.error('Supabase load error:',err);
-    setStatus('error');
-    chkPenalty();renderAll();
-  });
+  try{var r=localStorage.getItem(KEY);if(r)S=JSON.parse(r);}catch(e){}
+  if(S.balance!==undefined&&S.earned===undefined){S.earned=S.balance;S.spent=0;delete S.balance;}
+  if(!S.spends)S.spends=[];
+  if(!S.rules)S.rules={};
+  loadRules();
+  recalcStreak();
+  chkPenalty();
+  renderAll();
 }
-/* ── Supabase書き込み ── */
-var _saveTimer=null;
-var _saving=false;
-function save(){
-  try{localStorage.setItem(LOCAL_KEY,JSON.stringify(S));}catch(e){}
-  clearTimeout(_saveTimer);
-  _saveTimer=setTimeout(function(){_pushToSupabase();},800);
-}
-
-function _pushToSupabase(){
-  if(_saving){_saveTimer=setTimeout(function(){_pushToSupabase();},1200);return;}
-  _saving=true;
-  setStatus('saving');
-
-  // 1) stateをupsert
-  var statePayload={
-    id:1,
-    earned:S.earned, spent:S.spent,
-    streak:S.streak, cycle_streak:S.cycleStreak||0,
-    last_ex:S.lastEx||null,
-    total_count:S.totalCount, level:S.level,
-    rules:S.rules||{}
-  };
-
-  // 2) historyをupsert（全件）
-  var histPayload=(S.history||[]).map(function(h){
-    return {id:String(h.id),date:h.date,exs:h.exs||[],type:h.type,amt:h.amt,note:h.note||'',friend_bonus:h.friendBonus||false};
-  });
-
-  // 3) spendsをupsert（全件）
-  var spendPayload=(S.spends||[]).map(function(s){
-    return {id:String(s.id),date:s.date,item:s.item,amt:s.amt};
-  });
-
-  var jobs=[
-    sbFetch('state?id=eq.1',{method:'PATCH',body:JSON.stringify(statePayload)})
-  ];
-  if(histPayload.length){
-    jobs.push(sbFetch('history',{
-      method:'POST',
-      headers:{'Prefer':'resolution=merge-duplicates'},
-      body:JSON.stringify(histPayload)
-    }));
-  }
-  if(spendPayload.length){
-    jobs.push(sbFetch('spends',{
-      method:'POST',
-      headers:{'Prefer':'resolution=merge-duplicates'},
-      body:JSON.stringify(spendPayload)
-    }));
-  }
-
-  // 現在のhistory idセット（fullRecompute後に再生成されたものも含む）
-  var currentHistIds=(S.history||[]).map(function(h){return String(h.id);});
-
-  Promise.all(jobs)
-  .then(function(responses){
-    var failed=responses.find(function(r){return !r.ok;});
-    if(failed){throw new Error('HTTP '+failed.status);}
-    // DB上に残っている古いbonus行などを削除（idが現在のセットにない行）
-    // Supabase: id=not.in.(id1,id2,...) で一括削除
-    if(currentHistIds.length>0){
-      return sbFetch('history?id=not.in.('+currentHistIds.map(function(id){return encodeURIComponent(id);}).join(',')+')',{method:'DELETE'});
-    }
-    return Promise.resolve({ok:true});
-  })
-  .then(function(){
-    try{localStorage.setItem(LOCAL_KEY,JSON.stringify(S));}catch(e){}
-    setStatus('ok');
-    _saving=false;
-  })
-  .catch(function(err){
-    console.error('Supabase save error:',err);
-    setStatus('error');
-    _saving=false;
-  });
-}
-
-// 削除専用関数（記録削除・支出削除時に呼ぶ）
-function sbDelete(table, id){
-  return sbFetch(table+'?id=eq.'+encodeURIComponent(id),{method:'DELETE'});
-}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
 
 /* ── Helpers ── */
 function td(){
@@ -854,10 +716,8 @@ function deleteSpend(sid){
   for(var i=0;i<S.spends.length;i++){if(String(S.spends[i].id)===String(sid)){idx=i;break;}}
   if(idx<0)return;
   if(!confirm('削除しますか？\n'+S.spends[idx].item+' ¥'+S.spends[idx].amt.toLocaleString()))return;
-  var delId2=String(S.spends[idx].id);
   S.spent-=S.spends[idx].amt;
   S.spends.splice(idx,1);
-  sbDelete('spends', delId2).catch(function(e){console.error('delete spend error',e);});
   toast('削除しました');save();renderAll();
 }
 
@@ -920,9 +780,7 @@ function saveRecEdit(){
 function deleteRecord(){
   if(!editingRecId)return;
   if(!confirm('この運動記録を削除しますか？'))return;
-  var delId=editingRecId;
-  S.history=S.history.filter(function(h){return h.id!==delId;});
-  sbDelete('history', delId).catch(function(e){console.error('delete history error',e);});
+  S.history=S.history.filter(function(h){return h.id!==editingRecId;});
   fullRecompute();closeRecModal();save();renderAll();toast('削除しました');
 }
 
@@ -1041,26 +899,13 @@ function doImport(evt){
   reader.readAsText(file);
   evt.target.value='';
 }
-function setStatus(state){
-  var el=document.getElementById('sync-status');
-  if(!el)return;
-  if(state==='loading'){el.textContent='読込中…';el.style.background='#333';el.style.color='#aaa';}
-  else if(state==='saving'){el.textContent='保存中…';el.style.background='#333';el.style.color='#f0a500';}
-  else if(state==='ok'){el.textContent='✓ 同期済み';el.style.background='#1a3a2a';el.style.color='#2ecc71';}
-  else if(state==='error'){el.textContent='⚠ 同期エラー';el.style.background='#3a1a1a';el.style.color='#e74c3c';}
-}
 function doReset(){
   if(!confirm('全データを削除します。この操作は取り消せません。\n本当によろしいですか？'))return;
   if(!confirm('本当に削除しますか？'))return;
-  try{localStorage.removeItem(LOCAL_KEY);}catch(e){}
+  try{localStorage.removeItem(KEY);}catch(e){}
   S={earned:0,spent:0,history:[],spends:[],streak:0,cycleStreak:0,lastEx:null,totalCount:0,level:0,rules:{}};
-  loadRules();recalcStreak();
-  // Supabase: history/spendsを全削除、stateをリセット
-  Promise.all([
-    sbFetch('history',{method:'DELETE',headers:{'Prefer':''}}),
-    sbFetch('spends',{method:'DELETE',headers:{'Prefer':''}}),
-    sbFetch('state?id=eq.1',{method:'PATCH',body:JSON.stringify({earned:0,spent:0,streak:0,cycle_streak:0,last_ex:null,total_count:0,level:0,rules:{}})})
-  ]).catch(function(e){console.error('reset error',e);});
+  loadRules();
+  recalcStreak();
   renderAll();
   toast('データを削除しました');
 }
@@ -1313,8 +1158,7 @@ function rCal(){
   var startOffset=firstDay===0?6:firstDay-1; // Mon=0
   var daysInMonth=new Date(y,m+1,0).getDate();
   var daysInPrev=new Date(y,m,0).getDate();
-  var _tn=new Date();
-  var todayStr=_tn.getFullYear()+'-'+(_tn.getMonth()+1<10?'0'+(_tn.getMonth()+1):(_tn.getMonth()+1))+'-'+(_tn.getDate()<10?'0'+_tn.getDate():_tn.getDate());
+  var todayStr=new Date().toISOString().split('T')[0];
   var cells=[];
 
   // prev month padding
@@ -1443,7 +1287,6 @@ function showCalDetail(d, exByDay, spendItemByDay){
 }
 
 
-setStatus('loading');
 load();
 </script>
 </body>
